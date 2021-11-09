@@ -128,5 +128,5 @@ spec:
 
 请参阅：
 
-[贡献指南](https://github.com/weimob-tech/cloud-provider-tencent)
+[贡献指南](https://github.com/weimob-tech/cloud-provider-tencent/blob/master/CONTRIBUTING.md)
 
