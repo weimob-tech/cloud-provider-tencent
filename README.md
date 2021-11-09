@@ -1,4 +1,4 @@
-目录
+Tencent cloud controller manager
 =================
   * [一、前言](#一前言)
   * [二、功能](#二功能)
@@ -6,6 +6,7 @@
   * [四、前置要求](#四前置要求)
   * [五、部署](#五部署)
   * [六、CLB功能](#六CLB功能)
+  * [七、贡献指南](#七贡献指南)
 
 # 一、前言
 tencent cloud controller manager是基于腾讯云tencentcloud cloud controller manager的一个改进项目。 重新开发的主要原因是tencentcloud cloud controller manager很久不更新，为了更好的针对bug的修复和对新k8s的支持，所以把 tencentcloud cloud controller manager重写并命名为tencent-cloud-controller-manager
@@ -122,3 +123,10 @@ spec:
 - service.beta.kubernetes.io/tencentcloud-loadbalancer-type-internal-subnet-id: 私有网络型CLB的私有子网ID，私有子网型CLB必需配置
 - service.beta.kubernetes.io/tencentcloud-loadbalancer-node-label-key: node的标签的key，默认值为kubernetes.io/role
 - service.beta.kubernetes.io/tencentcloud-loadbalancer-node-label-value: node的标签key的值，默认值为node，也就是说默认只有标签kubernetes.io/role=node的节点才会加入到CLB的后端节点内。
+
+# 七、贡献指南
+
+请参阅：
+
+[贡献指南](https://github.com/weimob-tech/cloud-provider-tencent)
+
