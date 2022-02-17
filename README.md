@@ -1,4 +1,4 @@
-Tencent cloud controller manager
+目录
 =================
   * [一、前言](#一前言)
   * [二、功能](#二功能)
@@ -22,7 +22,7 @@ tencent cloud controller manager是基于腾讯云tencentcloud cloud controller 
 # 三、兼容性
 tencent CCM版本 | kubernetes版本
 ---|---
-v1.x | v1.19及以下
+v1.x | 推荐v1.18
 
 
 # 四、前置要求
@@ -61,6 +61,7 @@ data:
   TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_CLUSTER_ROUTE_TABLE: "<CLUSTER_NETWORK_ROUTE_TABLE_NAME>" #腾讯云创建的路由表名
   TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_VPC_ID: "<VPC_ID>" #腾讯云创建的路由表的VPC ID
   TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_CLB_NAME_PREFIX: "<TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_CLB_NAME_PREFIX>"  #在腾讯云创建CLB时的前缀
+  TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_CLB_TAG_KEY: "<TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_CLB_TAG_KEY>" #在腾讯云创建CLB等资源时打tag的key，tag value为TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_CLB_NAME_PREFIX
 ```
 将上面的value修改为你需要的配置，记得需要是base64编码.
 
@@ -118,15 +119,37 @@ spec:
   type: LoadBalancer
 ```
 
-其中annotations和type是关键，tencent cloud controller manager支持的annotations有：
-- service.beta.kubernetes.io/tencentcloud-loadbalancer-type: 可以为public和private(默认)，public为公网型CLB，private为私有子网型，当为private时，tencentcloud-loadbalancer-type-internal-subnet-id也必需要配置。
-- service.beta.kubernetes.io/tencentcloud-loadbalancer-type-internal-subnet-id: 私有网络型CLB的私有子网ID，私有子网型CLB必需配置
-- service.beta.kubernetes.io/tencentcloud-loadbalancer-node-label-key: node的标签的key，默认值为kubernetes.io/role
-- service.beta.kubernetes.io/tencentcloud-loadbalancer-node-label-value: node的标签key的值，默认值为node，也就是说默认只有标签kubernetes.io/role=node的节点才会加入到CLB的后端节点内。
+其中annotations和type是关键，type需要为LoadBalancer,tencent cloud controller manager支持的annotations有：
+
+annotations | 必选 | 说明
+---|---|---
+service.beta.kubernetes.io/tencentcloud-loadbalancer-type | 否 | 可以为public和private(默认)，public为公网型CLB，private为私有子网型，当为private时，tencentcloud-loadbalancer-type-internal-subnet-id也必需要配置。
+service.beta.kubernetes.io/tencentcloud-loadbalancer-type-internal-subnet-id | 否 | 私有网络型CLB的私有子网ID，私有子网型CLB必需配置
+service.beta.kubernetes.io/tencentcloud-loadbalancer-node-label-key | 否 |  node的标签的key，默认值为kubernetes.io/role
+service.beta.kubernetes.io/tencentcloud-loadbalancer-node-label-value | 否 |  node的标签key的值，默认值为node，也就是说默认只有标签kubernetes.io/role=node的节点才会加入到CLB的后端节点内。
+service.beta.kubernetes.io/tencentcloud-loadbalancer-health-check-switch | 否 |  是否开启健康检查：1（开启）、0（关闭），默认为0
+service.beta.kubernetes.io/tencentcloud-loadbalancer-health-check-timeout | 否 | 健康检查的响应超时时间（仅适用于四层监听器），可选值：2~60，默认值：2，单位：秒。响应超时时间要小于检查间隔时间。
+service.beta.kubernetes.io/tencentcloud-loadbalancer-health-check-interval-time | 否 | 健康检查探测间隔时间，默认值：5，可选值：5~300，单位：秒。
+service.beta.kubernetes.io/tencentcloud-loadbalancer-health-check-health-num | 否 | 健康阈值，默认值：3，表示当连续探测三次健康则表示该转发正常，可选值：2~10，单位：次。
+service.beta.kubernetes.io/tencentcloud-loadbalancer-health-check-un-health-num | 否 | 不健康阈值，默认值：3，表示当连续探测三次不健康则表示该转发异常，可选值：2~10，单位：次。
+
+
+以下的annotations暂时未想好怎么实现，腾讯云有提供相应的功能，但是通过k8s的service来创建7层的CLB怎么关联还需要做一些适配。
+
+annotations | 必选 | 说明
+---|---|---
+service.beta.kubernetes.io/tencentcloud-loadbalancer-listener-port | 否 |  要将监听器创建到哪个端口，仅允许一个端口。
+service.beta.kubernetes.io/tencentcloud-loadbalancer-listener-protocol | 否 | 监听器协议： TCP , UDP , HTTP , HTTPS , TCP_SSL（TCP_SSL 正在内测中，如需使用请通过工单申请，目前仅支持tcp,udp,http这三种）。
+service.beta.kubernetes.io/tencentcloud-loadbalancer-health-check-port | 否 | 自定义探测相关参数。健康检查端口，默认为后端服务的端口，除非您希望指定特定端口，否则建议留空。（仅适用于TCP/UDP监听器）。
+service.beta.kubernetes.io/tencentcloud-loadbalancer-listener-http-rules | 否 | 当service.beta.kubernetes.io/tencentcloud-loadbalancer-listener-protocol为http时必填，格式为host1;host2;hostn,当前不支持自义path，path统一使用/
+service.beta.kubernetes.io/tencentcloud-loadbalancer-health-check-http-code | 否 | 健康检查状态码（仅适用于HTTP/HTTPS转发规则、TCP监听器的HTTP健康检查方式）。可选值：1~31，默认 31。1 表示探测后返回值 1xx 代表健康，2 表示返回 2xx 代表健康，4 表示返回 3xx 代表健康，8 表示返回 4xx 代表健康，16 表示返回 5xx 代表健康。若希望多种返回码都可代表健康，则将相应的值相加。注意：TCP监听器的HTTP健康检查方式，只支持指定一种健康检查状态码。
+service.beta.kubernetes.io/tencentcloud-loadbalancer-health-check-http-path | 否 | 当service.beta.kubernetes.io/tencentcloud-loadbalancer-listener-protocol为http时必填，健康检查路径（仅适用于HTTP/HTTPS转发规则、TCP监听器的HTTP健康检查方式）。
+service.beta.kubernetes.io/tencentcloud-loadbalancer-health-check-http-domain | 否 | 健康检查域名（仅适用于HTTP/HTTPS转发规则、TCP监听器的HTTP健康检查方式）。
+service.beta.kubernetes.io/tencentcloud-loadbalancer-health-check-http-method | 否 | 健康检查方法（仅适用于HTTP/HTTPS转发规则、TCP监听器的HTTP健康检查方式），默认值：HEAD，可选值HEAD或GET。
+
 
 # 七、贡献指南
 
 请参阅：
 
 [贡献指南](https://github.com/weimob-tech/cloud-provider-tencent/blob/master/CONTRIBUTING.md)
-

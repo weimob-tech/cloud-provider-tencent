@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrCloudLoadBalancerNotFound = errors.New("LoadBalancer not found")
+	ErrCloudLoadBalancerNotFound = errors.New("LoadBalancer not exist")
 )
 
 // GetLoadBalancer returns whether the specified load balancer exists, and
@@ -19,7 +19,7 @@ var (
 func (cloud *Cloud) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (status *v1.LoadBalancerStatus, exists bool, err error) {
 	klog.V(3).Infof("tencentcloud.GetLoadBalancer(\"%s, %T\"): entered\n", clusterName, *service)
 	loadBalancerName := cloud.getLoadBalancerName(ctx, clusterName, service)
-	loadBalancer, err := cloud.getLoadBalancerByName(loadBalancerName)
+	loadBalancer, err := cloud.getLoadBalancer(loadBalancerName, service)
 	if err != nil {
 		klog.Warningf("tencentcloud.GetLoadBalancer: Get error: %v\n", err)
 		if err == ErrCloudLoadBalancerNotFound {
@@ -81,7 +81,7 @@ func (cloud *Cloud) EnsureLoadBalancer(ctx context.Context, clusterName string, 
 		return nil, err
 	}
 
-	loadBalancer, err := cloud.getLoadBalancerByName(cloud.getLoadBalancerName(ctx, clusterName, service))
+	loadBalancer, err := cloud.getLoadBalancer(cloud.getLoadBalancerName(ctx, clusterName, service), service)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (cloud *Cloud) UpdateLoadBalancer(ctx context.Context, clusterName string, 
 // Parameter 'clusterName' is the name of the cluster as presented to kube-controller-manager
 func (cloud *Cloud) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
 	klog.V(3).Infof("tencentcloud.EnsureLoadBalancerDeleted(\"%s, %T\"): entered\n", clusterName, *service)
-	_, err := cloud.getLoadBalancerByName(cloud.GetLoadBalancerName(ctx, clusterName, service))
+	_, err := cloud.getLoadBalancer(cloud.GetLoadBalancerName(ctx, clusterName, service), service)
 	if err != nil {
 		if err == ErrCloudLoadBalancerNotFound {
 			klog.V(3).Infof("tencentcloud.EnsureLoadBalancerDeleted: return:  nil\n")

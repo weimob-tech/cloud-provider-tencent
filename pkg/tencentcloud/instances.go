@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -180,33 +181,17 @@ func (cloud *Cloud) getInstanceByInstancePrivateIp(ctx context.Context, privateI
 		return cacheValue.(*cvm.Instance), nil
 	}
 
-	request := cvm.NewDescribeInstancesRequest()
-	request.Filters = []*cvm.Filter{
-		{
-			Values: common.StringPtrs([]string{privateIp}),
-			Name:   common.StringPtr("private-ip-address"),
-		},
-	}
-
-	response, err := cloud.cvm.DescribeInstances(request)
-	if _, ok := err.(*cloudErrors.TencentCloudSDKError); ok {
-		klog.Warningf("tencentcloud.getInstanceByInstancePrivateIp: tencentcloud API error: %v\n", err)
-		klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIp: return: nil, %v\n", err)
-		return nil, err
-	}
+	ips := []string{privateIp}
+	instances, err := cloud.getInstanceByInstancePrivateIps(ctx, ips)
 	if err != nil {
 		klog.Warningf("tencentcloud.getInstanceByInstancePrivateIp: Get error: %v\n", err)
 		klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIp: return: nil, %v\n", err)
 		return nil, err
 	}
-	for _, instance := range response.Response.InstanceSet {
-		if *instance.VirtualPrivateCloud.VpcId != cloud.txConfig.VpcId {
-			continue
-		}
+	for _, instance := range instances {
 		for _, ip := range instance.PrivateIpAddresses {
 			if *ip == privateIp {
 				klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIp: return(ip:%s): %T, nil\n", privateIp, *instance)
-				cloud.cache.Set(cacheKey, instance)
 				return instance, nil
 			}
 		}
@@ -216,7 +201,74 @@ func (cloud *Cloud) getInstanceByInstancePrivateIp(ctx context.Context, privateI
 	return nil, cloudProvider.InstanceNotFound
 }
 
-// getInstanceByInstancePrivateIp returns Tencent Cloud Instance for instanceID
+// getInstanceByInstancePrivateIps returns Tencent Cloud Instance for multi private ip
+func (cloud *Cloud) getInstanceByInstancePrivateIps(ctx context.Context, privateIps []string) ([]*cvm.Instance, error) {
+	klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIps(\"%v\"): entered\n", privateIps)
+
+	ips := make([]string, 0)
+	instances := make([]*cvm.Instance, 0)
+	for _, ip := range privateIps {
+		cacheKey := cacheNamePreVmIp + ip
+		cacheValue, exist := cloud.cache.Get(cacheKey)
+		if exist {
+			klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIps: cache exist(ip:%s):  %T\n", ip, cacheValue.(*cvm.Instance))
+			instances = append(instances, cacheValue.(*cvm.Instance))
+			continue
+		}
+		ips = append(ips, ip)
+	}
+	sort.Strings(ips)
+	klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIps: ips: %v\n", ips)
+
+	count := len(ips)
+	requestIps := make([]string, 0)
+	for i := 0; i < count; i++ {
+		requestIps = append(requestIps, ips[i])
+		//klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIps: ips: %v\n", ips)
+		//klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIps: requestIps: %v, %d\n", requestIps, i)
+		if (i > 0 && (i+1)%5 == 0) || i == count-1 {
+			request := cvm.NewDescribeInstancesRequest()
+			request.Filters = []*cvm.Filter{
+				{
+					Values: common.StringPtrs(requestIps),
+					Name:   common.StringPtr("private-ip-address"),
+				},
+			}
+
+			response, err := cloud.cvm.DescribeInstances(request)
+			if _, ok := err.(*cloudErrors.TencentCloudSDKError); ok {
+				klog.Warningf("tencentcloud.getInstanceByInstancePrivateIps: tencentcloud API error: %v, requestIps: %v\n", err, requestIps)
+				klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIps: return: nil, %v\n", err)
+				return nil, err
+			}
+			if err != nil {
+				klog.Warningf("tencentcloud.getInstanceByInstancePrivateIps: Get error: %v, requestIps: %v\n", err, requestIps)
+				klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIps: return: nil, %v\n", err)
+				return nil, err
+			}
+			for _, instance := range response.Response.InstanceSet {
+				if *instance.VirtualPrivateCloud.VpcId != cloud.txConfig.VpcId {
+					continue
+				}
+				for _, privateIp := range instance.PrivateIpAddresses {
+					if isExist(*privateIp, ips) {
+						klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIps: get instance from tencentcloud API(ip:%s): %T\n", *privateIp, *instance)
+						cacheKey := cacheNamePreVmIp + *privateIp
+						cloud.cache.Set(cacheKey, instance)
+						instances = append(instances, instance)
+						continue
+					}
+				}
+			}
+			requestIps = nil
+		}
+	}
+
+	klog.V(3).Infof("tencentcloud.getInstanceByInstancePrivateIps: return: instances count %d, nil\n", len(instances))
+	return instances, nil
+}
+
+// getInstanceByInstanceID returns Tencent Cloud Instance for instanceID
 func (cloud *Cloud) getInstanceByInstanceID(ctx context.Context, instanceID string) (*cvm.Instance, error) {
 	klog.V(3).Infof("tencentcloud.getInstanceByInstanceID(\"%s\"): entered\n", instanceID)
 

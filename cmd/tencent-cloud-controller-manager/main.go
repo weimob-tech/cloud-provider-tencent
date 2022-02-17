@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/farmerluo/cloud-provider-tencent/pkg/tencentcloud"
 	"github.com/spf13/cobra"
+	_ "github.com/weimob-tech/cloud-provider-tencent/pkg/tencentcloud"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/util/term"
 	cliflag "k8s.io/component-base/cli/flag"

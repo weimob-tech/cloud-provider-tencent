@@ -39,7 +39,7 @@ spec:
                 secretKeyRef:
                   key: TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_REGION
                   name: tencent-cloud-controller-manager-config
-            - name: tencent_CLOUD_CONTROLLER_MANAGER_SECRET_ID
+            - name: TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_SECRET_ID
               valueFrom:
                 secretKeyRef:
                   key: TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_SECRET_ID
@@ -64,7 +64,12 @@ spec:
                 secretKeyRef:
                   key: TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_CLB_NAME_PREFIX
                   name: tencent-cloud-controller-manager-config
-          image: ccr.ccs.tencentyun.com/weimob-public/tencent-cloud-controller-manager:v1.0
+            - name: TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_CLB_TAG_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_CLB_TAG_KEY
+                  name: tencent-cloud-controller-manager-config
+          image: weimob-saas-tcr.hsmob.com/public/tencent-cloud-controller-manager:v1.3
           imagePullPolicy: IfNotPresent
           name: tencent-cloud-controller-manager
           resources: {}
@@ -75,7 +80,6 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
-      serviceAccount: cloud-controller-manager
       serviceAccountName: cloud-controller-manager
       terminationGracePeriodSeconds: 30
       tolerations:

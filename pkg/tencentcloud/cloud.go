@@ -9,17 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/farmerluo/cloud-provider-tencent/pkg/cache"
-
-	cloudProvider "k8s.io/cloud-provider"
-	"k8s.io/klog"
-
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
-
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tke/v20180525"
+	"github.com/weimob-tech/cloud-provider-tencent/pkg/cache"
+	cloudProvider "k8s.io/cloud-provider"
+	"k8s.io/klog"
 
 	"k8s.io/client-go/kubernetes"
 )
@@ -30,25 +27,22 @@ const (
 )
 
 type TxCloudConfig struct {
-	Region        string `json:"region"`
-	VpcId         string `json:"vpc_id"`
-	CLBNamePrefix string `json:"clb_name_prefix"`
-
-	SecretId  string `json:"secret_id"`
-	SecretKey string `json:"secret_key"`
-
+	Region            string `json:"region"`
+	VpcId             string `json:"vpc_id"`
+	CLBNamePrefix     string `json:"clb_name_prefix"`
+	TagKey            string `json:"tag_key"`
+	SecretId          string `json:"secret_id"`
+	SecretKey         string `json:"secret_key"`
 	ClusterRouteTable string `json:"cluster_route_table"`
 }
 
 type Cloud struct {
-	txConfig TxCloudConfig
-
+	txConfig   TxCloudConfig
 	kubeClient kubernetes.Interface
-
-	cvm   *cvm.Client
-	tke   *tke.Client
-	clb   *clb.Client
-	cache *cache.TTLCache
+	cvm        *cvm.Client
+	tke        *tke.Client
+	clb        *clb.Client
+	cache      *cache.TTLCache
 }
 
 //NewCloud Cloud constructed function
@@ -73,6 +67,9 @@ func NewCloud(config io.Reader) (*Cloud, error) {
 	}
 	if c.CLBNamePrefix == "" {
 		c.CLBNamePrefix = os.Getenv("TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_CLB_NAME_PREFIX")
+	}
+	if c.TagKey == "" {
+		c.TagKey = os.Getenv("TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_CLB_TAG_KEY")
 	}
 	if c.SecretId == "" {
 		c.SecretId = os.Getenv("TENCENTCLOUD_CLOUD_CONTROLLER_MANAGER_SECRET_ID")
@@ -101,6 +98,10 @@ func checkConfig(c TxCloudConfig) error {
 	if strings.TrimSpace(c.VpcId) == "" {
 		klog.Error("tencentcloud.checkConfig: 'VpcId' config is null\n")
 		return errors.New("'VpcId' config is null")
+	}
+	if strings.TrimSpace(c.TagKey) == "" {
+		klog.Error("tencentcloud.checkConfig: 'TagKey' config is null\n")
+		return errors.New("'TagKey' config is null")
 	}
 	if strings.TrimSpace(c.CLBNamePrefix) == "" {
 		klog.Error("tencentcloud.checkConfig: 'CLBNamePrefix' config is null\n")
@@ -150,11 +151,13 @@ func (cloud *Cloud) Initialize(clientBuilder cloudProvider.ControllerClientBuild
 		klog.Warningf("tencentcloud.Initialize().cvm.NewClient An tencentcloud API error has returned, message=[%v])\n", err)
 	}
 	cloud.cvm = cvmClient
+
 	tkeClient, err := tke.NewClient(credential, cloud.txConfig.Region, cpf)
 	if err != nil {
 		klog.Warningf("tencentcloud.Initialize().tke.NewClient An tencentcloud API error has returned, message=[%v])\n", err)
 	}
 	cloud.tke = tkeClient
+
 	clbClient, err := clb.NewClient(credential, cloud.txConfig.Region, cpf)
 	if err != nil {
 		klog.Warningf("tencentcloud.Initialize().clb.NewClient An tencentcloud API error has returned, message=[%v])\n", err)

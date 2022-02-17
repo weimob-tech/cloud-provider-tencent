@@ -47,3 +47,12 @@ func (t *TTLCache) Get(key string) (interface{}, bool) {
 	}
 	return item.(*TencentCloudCacheEntry).Data, true
 }
+
+// Delete delete cache data for the key.
+func (t *TTLCache) Delete(key string) bool {
+	err := t.Store.Delete(key)
+	if err != nil {
+		return false
+	}
+	return true
+}
